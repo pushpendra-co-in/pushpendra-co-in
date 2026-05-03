@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How I Would Design a Scalable System Today - Pushpendra Kumar</title>
+    <meta name="description"
+        content="A deep dive into URL shortener architecture — how design decisions evolve from a simple Flask app to a distributed system with Redis, async queues and CDN caching.">
+    <meta name="author" content="Pushpendra Kumar">
+    <link rel="canonical" href="https://pushpendra.co.in/post/design-scalable-system/">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pushpendra.co.in/post/design-scalable-system/">
+    <meta property="og:title" content="How I Would Design a Scalable System Today - Pushpendra Kumar">
+    <meta property="og:description"
+        content="A deep dive into URL shortener architecture — how design decisions evolve from a simple Flask app to a distributed system with Redis, async queues and CDN caching.">
+    <meta property="og:site_name" content="Pushpendra Kumar">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@Pushpendra9350">
+    <meta name="twitter:title" content="How I Would Design a Scalable System Today - Pushpendra Kumar">
+    <meta name="twitter:description"
+        content="A deep dive into URL shortener architecture — how design decisions evolve from a simple Flask app to a distributed system with Redis, async queues and CDN caching.">
+    <link rel="stylesheet" href="../../tailwind.css">
+    <link rel="stylesheet" href="../../style.css">
+</head>
+
+<body class="theme-dark transition-colors duration-300 pt-16 md:pt-0">
+
+    <!-- ================= MOBILE NAV ================= -->
+    <nav class="md:hidden fixed top-0 left-0 right-0 z-50 px-4 py-2 flex items-center justify-between glass-nav"
+        style="border-bottom: 1px solid var(--border-color);">
+        <a href="/" class="flex items-center gap-2 text-base font-semibold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                </path>
+            </svg>
+        </a>
+        <button onclick="toggleMobileMenu()" class="p-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16">
+                </path>
+            </svg>
+        </button>
+    </nav>
+
+    <!-- ================= MOBILE MENU ================= -->
+    <div id="mobile-menu" class="mobile-menu md:hidden fixed top-0 right-0 bottom-0 w-64 z-50 glass-nav p-6">
+        <div class="flex justify-end mb-8">
+            <button onclick="toggleMobileMenu()" class="p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+        <div class="flex flex-col gap-6">
+            <a href="/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                    </path>
+                </svg>
+                <span>Home</span>
+            </a>
+            <a href="/work/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                    </path>
+                </svg>
+                <span>Work</span>
+            </a>
+            <a href="/projects/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <span>Projects</span>
+            </a>
+            <a href="/posts/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                <span>Posts</span>
+            </a>
+            <button onclick="toggleTheme()" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg id="theme-icon-sun-mobile" class="w-5 h-5 hidden" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                    </path>
+                </svg>
+                <svg id="theme-icon-moon-mobile" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+                </svg>
+                <span>Toggle Theme</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= DESKTOP NAV ================= -->
+    <nav class="hidden md:flex items-center justify-center pt-8 pb-16 sticky top-0 z-50">
+        <div class="glass-nav rounded-full px-8 py-3 flex items-center gap-6">
+            <a href="/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                    </path>
+                </svg>
+                <span>Home</span>
+            </a>
+            <a href="/work/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                    </path>
+                </svg>
+                <span>Work</span>
+            </a>
+            <a href="/projects/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                </svg>
+                <span>Projects</span>
+            </a>
+            <a href="/posts/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                <span>Posts</span>
+            </a>
+            <button onclick="toggleTheme()" class="ml-4 p-2 rounded-full hover:opacity-70 transition">
+                <svg id="theme-icon-sun" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+                    </path>
+                </svg>
+                <svg id="theme-icon-moon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z">
+                    </path>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ================= PAGE LAYOUT ================= -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-16 flex flex-col lg:flex-row gap-10">
+
+        <!-- ===== DESKTOP TOC ===== -->
+        <aside class="hidden lg:block w-64 flex-none sticky top-24 h-fit">
+            <h3 class="text-sm font-bold mb-4" style="color: var(--text-secondary);">TABLE OF CONTENTS</h3>
+            <nav class="space-y-2 text-sm">
+                <a href="#five-years-ago" class="toc-link block hover:opacity-70 transition"
+                    style="color: var(--text-secondary);">Design 5 Years Ago</a>
+                <a href="#breaks" class="toc-link block hover:opacity-70 transition"
+                    style="color: var(--text-secondary);">Where It Breaks</a>
+                <a href="#today" class="toc-link block hover:opacity-70 transition"
+                    style="color: var(--text-secondary);">Design Today</a>
+                <a href="#walkthrough" class="toc-link block hover:opacity-70 transition"
+                    style="color: var(--text-secondary);">Scenario Walkthrough</a>
+                <a href="#lessons" class="toc-link block hover:opacity-70 transition"
+                    style="color: var(--text-secondary);">Key Lessons</a>
+                <a href="#closing" class="toc-link block hover:opacity-70 transition"
+                    style="color: var(--text-secondary);">Closing Thoughts</a>
+            </nav>
+        </aside>
+
+        <!-- ================= MAIN CONTENT ================= -->
+        <main class="flex-1 max-w-3xl">
+
+            <p class="text-xs sm:text-sm mb-4" style="color: var(--text-secondary);">March 12, 2025</p>
+
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-8">
+                How I Would Design a Scalable System Today (vs 5 Years Ago)
+            </h1>
+
+            <!-- ===== MOBILE TOC ===== -->
+            <div class="lg:hidden mb-8 p-4 rounded-lg border"
+                style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                <button onclick="toggleTOC()" class="flex justify-between w-full">
+                    <span class="font-bold text-sm">TABLE OF CONTENTS</span>
+                    <span id="toc-chevron" class="chevron">⌄</span>
+                </button>
+                <nav id="toc-content" class="toc-content mt-4 space-y-2 text-sm">
+                    <a href="#five-years-ago" class="block" onclick="toggleTOC()">Design 5 Years Ago</a>
+                    <a href="#breaks" class="block" onclick="toggleTOC()">Where It Breaks</a>
+                    <a href="#today" class="block" onclick="toggleTOC()">Design Today</a>
+                    <a href="#walkthrough" class="block" onclick="toggleTOC()">Scenario Walkthrough</a>
+                    <a href="#lessons" class="block" onclick="toggleTOC()">Key Lessons</a>
+                    <a href="#closing" class="block" onclick="toggleTOC()">Closing Thoughts</a>
+                </nav>
+            </div>
+
+            <!-- ================= INTRO ================= -->
+            <div class="mb-12">
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Five years ago, if you'd asked me to design a URL shortener, I'd have had a working prototype in an
+                    afternoon and considered the job done. A Flask app, a Postgres database, maybe a <code
+                        class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">random.choices</code> call to generate short
+                    codes. Deploy it on a single server, call it shipped.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    That confidence wasn't arrogance — it was inexperience wearing a convincing disguise.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    The gap between "a system that works" and "a system that works under pressure" is where most of my
+                    real education happened. Not in documentation or design pattern books, but in watching a single
+                    database melt under load, debugging a race condition at 11 PM, and explaining to a product manager
+                    why a "simple" change caused a 40-minute outage. This post is about that gap — specifically, how I'd
+                    design a URL shortener today versus how I would have approached it five years ago, and why every
+                    decision change was paid for with a real lesson.
+                </p>
+            </div>
+
+            <!-- ================= SECTIONS ================= -->
+
+            <section id="five-years-ago" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-4">How I Would Have Designed It 5 Years Ago</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The requirements seemed simple enough: take a long URL, return a short code, redirect users when
+                    they visit that short code. Maybe add click analytics later.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    My early design would have looked roughly like this:</p>
+
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-6">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center"
+                        style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>architecture</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre
+                        style="background-color: var(--bg-secondary);"><code>[Client] → [Flask/Django App] → [PostgreSQL DB]</code></pre>
+                </div>
+
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    One application server. One database with two tables: <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">urls</code> (id, short_code, original_url,
+                    created_at) and <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">clicks</code> (id, short_code, timestamp,
+                    ip_address). The short code generation was straightforward — pick 6 random alphanumeric characters,
+                    check if it already exists in the DB, retry if collision. Expose two endpoints: <code
+                        class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">POST /shorten</code> and <code
+                        class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">GET /{code}</code>.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    And honestly? This design is fine. For a side project, a hackathon, an internal tool with 50 users —
+                    it's completely appropriate. You can build it in a day, reason about it in five minutes, and debug
+                    it with a single <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">tail -f</code> on the logs. There's real value in
+                    that simplicity, and I'm not going to pretend otherwise.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    The mistake wasn't building it this way. The mistake was not knowing <em>when</em> this design would
+                    stop working — and more importantly, not building in the observability to even know when that moment
+                    arrived.
+                </p>
+            </section>
+
+            <section id="breaks" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-4">Where That Design Breaks</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Imagine the service gets featured on a popular tech newsletter. Within an hour, 50,000 users hit the
+                    redirect endpoint. Here's what happens to that simple design:
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong class="font-semibold" style="color: var(--text-primary);">The redirect endpoint becomes a
+                        bottleneck.</strong> Every <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">GET /{code}</code> goes to Postgres. A single
+                    Postgres instance can handle maybe a few thousand reads per second under ideal conditions. At 50,000
+                    concurrent users, you're not in ideal conditions. Query latency climbs. Connection pool exhausts.
+                    The app starts timing out. Users see errors.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong class="font-semibold" style="color: var(--text-primary);">The click tracking makes it
+                        worse.</strong> Every redirect also writes a row to the <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">clicks</code> table. So each user action is both a
+                    read <em>and</em> a write hitting the same database. The <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">clicks</code> table starts locking during inserts.
+                    Read queries queue up. The whole thing grinds.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong class="font-semibold" style="color: var(--text-primary);">There's no failure
+                        isolation.</strong> If the database goes down, the entire service goes down. If a slow query
+                    holds a connection, all other requests queue behind it. One bad actor can take down every user.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    <strong class="font-semibold" style="color: var(--text-primary);">You have no idea any of this is
+                        happening.</strong> Your logs say <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">"Redirected abc123"</code> with no latency, no
+                    error rates, no queue depths. You find out the service is degraded when users tweet about it.
+                </p>
+            </section>
+
+            <section id="today" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">How I Would Design It Today</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The core insight that changed everything: <strong style="color: var(--text-primary);">design for the
+                        read path and write path separately, because they have completely different scaling
+                        characteristics.</strong>
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Here's the architecture I'd use today:</p>
+
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-8">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center"
+                        style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>architecture</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code>                        ┌─────────────────┐
+                        │   CDN / Edge    │ ← Cache popular redirects at edge
+                        └────────┬────────┘
+                                 │
+                        ┌────────▼────────┐
+                        │   API Gateway   │ ← Rate limiting, auth, routing
+                        └──┬──────────┬─-─┘
+                           │          │
+              ┌────────────▼──┐   ┌───▼────────────┐
+              │ Redirect Svc  │   │  Shorten Svc   │
+              └────────┬──────┘   └───┬────────────┘
+                       │              │
+              ┌────────▼──┐    ┌──────▼──────┐
+              │   Redis   │    │  PostgreSQL │
+              │  (cache)  │    │  (primary)  │
+              └───────────┘    └─────────────┘
+                       │
+              ┌────────▼──────────┐
+              │  Message Queue    │ ← Async click tracking
+              │  (Redis Streams   │
+              │   or Kafka)       │
+              └────────┬──────────┘
+                       │
+              ┌────────▼──────────┐
+              │  Analytics Worker │ → ClickHouse / TimescaleDB
+              └───────────────────┘</code></pre>
+                </div>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3 mt-8">Separate the Redirect Service from the Shorten
+                    Service</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-8" style="color: var(--text-secondary);">
+                    These have completely different traffic patterns. Redirects are read-heavy, latency-sensitive, and
+                    happen at massive scale. Shortening is write-heavy, less frequent, and can tolerate slightly higher
+                    latency. Separating them means I can scale the redirect service horizontally without deploying new
+                    shorten logic, and I can rate-limit shortening independently to prevent abuse. This isn't
+                    microservices for its own sake — it's recognizing that treating two fundamentally different
+                    workloads as one service is a scalability trap.
+                </p>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Redis Caching for the Redirect Path</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The redirect path is a textbook cache use case: the data rarely changes, it's read far more than
+                    it's written, and latency matters enormously.
+                </p>
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-6">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center"
+                        style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>python</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code>def redirect(short_code: str) -> str:
+    # Check cache first
+    cached_url = redis.get(f"url:{short_code}")
+    if cached_url:
+        return cached_url.decode()
+
+    # Fall back to DB
+    url = db.query("SELECT original_url FROM urls WHERE short_code = %s", short_code)
+    if url:
+        redis.setex(f"url:{short_code}", 86400, url)  # Cache for 24 hours
+        return url
+
+    raise NotFoundError(short_code)</code></pre>
+                </div>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-8" style="color: var(--text-secondary);">
+                    With this, the vast majority of redirects — especially for popular links — never touch Postgres at
+                    all. Redis can handle hundreds of thousands of reads per second. The database becomes a durable
+                    source of truth, not a query engine under constant siege.
+                </p>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Async Click Tracking</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Instead of writing a click row synchronously during the redirect, publish an event to a queue and
+                    let a background worker process it.
+                </p>
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-6">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center"
+                        style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>python</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code>def redirect(short_code: str) -> str:
+    url = get_url(short_code)  # From cache or DB
+
+    # Non-blocking: publish to queue, don't wait
+    queue.publish("clicks", {
+        "short_code": short_code,
+        "timestamp": time.time(),
+        "ip": request.remote_addr,
+        "user_agent": request.headers.get("User-Agent")
+    })
+
+    return url  # Respond immediately</code></pre>
+                </div>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-8" style="color: var(--text-secondary);">
+                    The redirect now completes in single-digit milliseconds. The analytics worker processes the queue at
+                    its own pace — if it falls behind under a traffic spike, it simply catches up without blocking
+                    users.
+                </p>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Short Code Generation Without DB Checks</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Early me generated a code and then checked the database for collisions — a database round-trip on
+                    every shorten request. Today I'd use a distributed ID approach, no collision check, no round-trip,
+                    no lock contention.
+                </p>
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-8">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center"
+                        style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>python</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code>import base62
+import snowflake_id  # Distributed ID generator
+
+def generate_short_code() -> str:
+    unique_id = snowflake_id.generate()  # Globally unique, time-ordered
+    return base62.encode(unique_id)[:7]  # "a3kX9mZ"</code></pre>
+                </div>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Observability Built In</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    Every service emits structured logs with request IDs, latency, and cache hit/miss status. I
+                    instrument three key metrics from day one: redirect latency (p50, p95, p99), cache hit rate, and
+                    queue depth. Alerts fire when p95 latency exceeds 200ms or queue depth grows beyond 10,000
+                    unprocessed events. I know about problems before users do.
+                </p>
+            </section>
+
+            <section id="walkthrough" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-4">Real-Life Scenario Walkthrough</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Let's trace what happens when a user clicks a shared link — <code class="px-2 py-1 rounded text-sm"
+                        style="background-color: var(--bg-tertiary);">https://short.ly/a3kX9mZ</code>.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-3 font-semibold"
+                    style="color: var(--text-primary);">Five years ago:</p>
+                <ol class="list-decimal list-inside space-y-2 text-base mb-6" style="color: var(--text-secondary);">
+                    <li>Request hits the app server</li>
+                    <li>App queries Postgres: <code class="px-2 py-1 rounded text-sm"
+                            style="background-color: var(--bg-tertiary);">SELECT original_url FROM urls WHERE short_code = 'a3kX9mZ'</code>
+                    </li>
+                    <li>App inserts a row into <code class="px-2 py-1 rounded text-sm"
+                            style="background-color: var(--bg-tertiary);">clicks</code> table</li>
+                    <li>App returns a 301 redirect</li>
+                    <li>Total time: 80–300ms. Under traffic spike: 2–10 seconds or timeout.</li>
+                </ol>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-3 font-semibold"
+                    style="color: var(--text-primary);">Today:</p>
+                <ol class="list-decimal list-inside space-y-2 text-base" style="color: var(--text-secondary);">
+                    <li>Request hits the CDN edge — if recently popular, redirect served directly from CDN. ~5ms.</li>
+                    <li>If not cached at edge, request reaches the Redirect Service.</li>
+                    <li>Redis lookup returns in ~1ms.</li>
+                    <li>If Redis misses, fall back to Postgres read replica. Cache result in Redis.</li>
+                    <li>Publish click event to queue — non-blocking, ~0.5ms.</li>
+                    <li>Return 301 redirect. Total time: 3–15ms under any reasonable load.</li>
+                    <li>Background worker batch-inserts into ClickHouse asynchronously, invisible to the user.</li>
+                </ol>
+            </section>
+
+            <section id="lessons" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Key Lessons From This Evolution</h2>
+
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Under-engineering is a choice; so is
+                        over-engineering.</strong> The simple design was right for the early stage. The lesson isn't
+                    "always build for scale" — it's "know your current scale, and design the migration path before you
+                    need it."
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">The read path and write path are different systems
+                        sharing a database.</strong> Treating them the same is the root cause of most performance
+                    bottlenecks I've seen. Separate them conceptually first, then decide whether they need to be
+                    separate services.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Async everything that doesn't need to be sync.</strong>
+                    If a user action triggers secondary effects — analytics, notifications, audit logs — those effects
+                    should almost never block the primary response. The cost of eventual consistency in analytics is
+                    almost always worth the latency improvement.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Observability is not a feature; it's a
+                        prerequisite.</strong> You cannot improve what you cannot measure. Structured logs, latency
+                    histograms, and queue depth metrics are non-negotiable from day one.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Failures are first-class citizens.</strong> Every
+                    component should have a defined behavior when something it depends on is unavailable. Designing for
+                    failure paths is just as important as designing for success paths.
+                </p>
+            </section>
+
+            <section id="closing" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-4">Closing Thoughts</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The most honest thing I can say about this evolution is that none of it came from studying system
+                    design in the abstract. It came from watching real systems fail in specific ways, then asking "what
+                    would have prevented this?" repeatedly over five years.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The junior version of me thought good system design meant knowing the right patterns. The version of
+                    me writing this understands that good system design means knowing which trade-offs you're making,
+                    why you're making them, and what you'll do when the assumptions behind them turn out to be wrong.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    The goal was never to build a complex system. The goal was always to build a system that earns the
+                    right to stay simple — and knows when it needs to grow up.
+                </p>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="../../main.js"></script>
+</body>
+
+</html>

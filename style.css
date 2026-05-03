@@ -1,0 +1,235 @@
+/* Global Styles for Portfolio Website */
+
+body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Theme Variables */
+.theme-light {
+    --bg-primary: #F5F3EA;
+    --bg-secondary: #f6f6f6;
+    --bg-tertiary: #F3F1EC;
+    --text-primary: #1a1a1a;
+    --text-secondary: #666666;
+    --heading: #43423D;
+    --border-color: #272727;
+}
+
+.theme-dark {
+    --bg-primary: #09090b;
+    --bg-secondary: #18181b;
+    --bg-tertiary: #27272a;
+    --text-primary: #e5e5e5;
+    --text-secondary: #a1a1aa;
+    --border-color: #3f3f46;
+    --heading: #e5e5e5;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.heading-color {
+    color: var(--heading);
+}
+
+.tag-design {
+    color: #43423D;
+    background-color: var(--bg-tertiary);
+    border: 1px solid rgba(182, 182, 182, 0.2);
+}
+
+.theme-dark .tag-design {
+    color: #c4c4c0;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.description-text {
+    color: #7B7974;
+    font-weight: 400;
+}
+
+.theme-dark .description-text {
+    color: #a1a1aa;
+}
+
+.post-page-card {
+    border: 1px solid var(--border-color);
+    background-color: #fff;
+}
+
+.theme-dark .post-page-card {
+    background-color: var(--bg-secondary);
+}
+
+.post-text-design {
+    color: #4b4c47;
+    font-size: 20px !important;
+    line-height: 38px !important;
+}
+
+.theme-dark .post-text-design {
+    color: #a1a1aa;
+}
+
+/* Glass Effect for Navigation */
+.glass-nav {
+    background: rgba(24, 24, 27, 0.7);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(63, 63, 70, 0.5);
+}
+
+.theme-light .glass-nav {
+    background: rgba(255, 255, 255, 0.7);
+    border: 0.5px solid #272727;
+}
+
+/* Mobile Menu Styles */
+.mobile-menu {
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out;
+}
+
+.mobile-menu.open {
+    transform: translateX(0);
+}
+
+/* Post Item Styles (Home Page) */
+.post-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    transition: opacity 0.2s;
+}
+
+.post-item:hover {
+    opacity: 0.7;
+}
+
+.post-item:last-child {
+    border-bottom: none;
+}
+
+@media (max-width: 640px) {
+    .post-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+}
+
+/* Table of Contents Styles (Blog Posts) */
+.toc-link.active {
+    color: #4f4f4f !important;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.toc-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+}
+
+.toc-content.open {
+    max-height: 500px;
+}
+
+.chevron {
+    transition: transform 0.3s ease-in-out;
+}
+
+.chevron.rotate {
+    transform: rotate(180deg);
+}
+
+/* Code Block Styles - Responsive Fix */
+.code-block-wrapper {
+    position: relative;
+    border: 0.5px solid black;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.copy-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.copy-button:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.copy-button.copied {
+    color: #00bb41 !important;
+    font-weight: 500;
+    border: 1px #00bb41 solid;
+    background-color: transparent;
+}
+
+/* Pre and Code Block Responsive Handling */
+pre {
+    margin: 0;
+    padding: 1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+pre code {
+    display: inline-block;
+    min-width: 100%;
+    white-space: pre !important;
+    word-wrap: normal !important;
+    word-break: normal !important;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+    .code-block-wrapper {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    pre {
+        font-size: 12px;
+        padding: 0.875rem;
+    }
+
+    .copy-button {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+    pre {
+        font-size: 13px;
+    }
+}
+
+/* Ensure main content area doesn't overflow */
+main {
+    overflow-x: hidden;
+}
+
+main>* {
+    max-width: 100%;
+}

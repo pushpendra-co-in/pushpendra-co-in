@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Production Bugs Taught Me About Writing Reliable Code - Pushpendra Kumar</title>    <meta name="description" content="Real production incidents — race conditions, silent data corruption, monitoring gaps — and how they changed the way I write backend code.">
+    <meta name="author" content="Pushpendra Kumar">
+    <link rel="canonical" href="https://pushpendra.co.in/post/bugs-taught-me-about-writing-reliable-code/">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pushpendra.co.in/post/bugs-taught-me-about-writing-reliable-code/">
+    <meta property="og:title" content="What Production Bugs Taught Me About Writing Reliable Code - Pushpendra Kumar">
+    <meta property="og:description" content="Real production incidents — race conditions, silent data corruption, monitoring gaps — and how they changed the way I write backend code.">
+    <meta property="og:site_name" content="Pushpendra Kumar">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@Pushpendra9350">
+    <meta name="twitter:title" content="What Production Bugs Taught Me About Writing Reliable Code - Pushpendra Kumar">
+    <meta name="twitter:description" content="Real production incidents — race conditions, silent data corruption, monitoring gaps — and how they changed the way I write backend code.">
+    <link rel="stylesheet" href="../../tailwind.css">
+    <link rel="stylesheet" href="../../style.css">
+</head>
+
+<body class="theme-dark transition-colors duration-300 pt-16 md:pt-0">
+
+    <!-- ================= MOBILE NAV ================= -->
+    <nav class="md:hidden fixed top-0 left-0 right-0 z-50 px-4 py-2 flex items-center justify-between glass-nav"
+        style="border-bottom: 1px solid var(--border-color);">
+        <a href="/" class="flex items-center gap-2 text-base font-semibold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                </path>
+            </svg>
+        </a>
+        <button onclick="toggleMobileMenu()" class="p-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+    </nav>
+
+    <!-- ================= MOBILE MENU ================= -->
+    <div id="mobile-menu" class="mobile-menu md:hidden fixed top-0 right-0 bottom-0 w-64 z-50 glass-nav p-6">
+        <div class="flex justify-end mb-8">
+            <button onclick="toggleMobileMenu()" class="p-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="flex flex-col gap-6">
+            <a href="/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                <span>Home</span>
+            </a>
+            <a href="/work/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <span>Work</span>
+            </a>
+            <a href="/projects/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                <span>Projects</span>
+            </a>
+            <a href="/posts/" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>Posts</span>
+            </a>
+            <button onclick="toggleTheme()" class="flex items-center gap-2 hover:opacity-70 transition text-base">
+                <svg id="theme-icon-sun-mobile" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <svg id="theme-icon-moon-mobile" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                <span>Toggle Theme</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= DESKTOP NAV ================= -->
+    <nav class="hidden md:flex items-center justify-center pt-8 pb-16 sticky top-0 z-50">
+        <div class="glass-nav rounded-full px-8 py-3 flex items-center gap-6">
+            <a href="/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                <span>Home</span>
+            </a>
+            <a href="/work/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <span>Work</span>
+            </a>
+            <a href="/projects/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                <span>Projects</span>
+            </a>
+            <a href="/posts/" class="flex items-center gap-2 hover:opacity-70 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>Posts</span>
+            </a>
+            <button onclick="toggleTheme()" class="ml-4 p-2 rounded-full hover:opacity-70 transition">
+                <svg id="theme-icon-sun" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <svg id="theme-icon-moon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ================= PAGE LAYOUT ================= -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pb-16 flex flex-col lg:flex-row gap-10">
+
+        <!-- ===== DESKTOP TOC ===== -->
+        <aside class="hidden lg:block w-64 flex-none sticky top-24 h-fit">
+            <h3 class="text-sm font-bold mb-4" style="color: var(--text-secondary);">TABLE OF CONTENTS</h3>
+            <nav class="space-y-2 text-sm">
+                <a href="#bugs" class="toc-link block hover:opacity-70 transition" style="color: var(--text-secondary);">The Bugs That Changed How I Think</a>
+                <a href="#patterns" class="toc-link block hover:opacity-70 transition" style="color: var(--text-secondary);">Patterns Across Failures</a>
+                <a href="#style" class="toc-link block hover:opacity-70 transition" style="color: var(--text-secondary);">How My Coding Style Changed</a>
+                <a href="#practices" class="toc-link block hover:opacity-70 transition" style="color: var(--text-secondary);">Practical Practices</a>
+                <a href="#closing" class="toc-link block hover:opacity-70 transition" style="color: var(--text-secondary);">Closing Thoughts</a>
+            </nav>
+        </aside>
+
+        <!-- ================= MAIN CONTENT ================= -->
+        <main class="flex-1 max-w-3xl">
+
+            <p class="text-xs sm:text-sm mb-4" style="color: var(--text-secondary);">January 28, 2025</p>
+
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-8">
+                What Production Bugs Taught Me About Writing Reliable Code
+            </h1>
+
+            <!-- ===== MOBILE TOC ===== -->
+            <div class="lg:hidden mb-8 p-4 rounded-lg border"
+                style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                <button onclick="toggleTOC()" class="flex justify-between w-full">
+                    <span class="font-bold text-sm">TABLE OF CONTENTS</span>
+                    <span id="toc-chevron" class="chevron">⌄</span>
+                </button>
+                <nav id="toc-content" class="toc-content mt-4 space-y-2 text-sm">
+                    <a href="#bugs" class="block" onclick="toggleTOC()">The Bugs That Changed How I Think</a>
+                    <a href="#patterns" class="block" onclick="toggleTOC()">Patterns Across Failures</a>
+                    <a href="#style" class="block" onclick="toggleTOC()">How My Coding Style Changed</a>
+                    <a href="#practices" class="block" onclick="toggleTOC()">Practical Practices</a>
+                    <a href="#closing" class="block" onclick="toggleTOC()">Closing Thoughts</a>
+                </nav>
+            </div>
+
+            <!-- ================= INTRO ================= -->
+            <div class="mb-12">
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Nobody tells you this in college: the real curriculum begins the first time your code breaks in production at 2 AM.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    I've been building software professionally for five years now — backend systems, APIs, financial data pipelines, the occasional frontend nightmare. In that time, I've written code I'm proud of, and I've written code that quietly destroyed data, silently dropped requests, and once — spectacularly — caused the same payment to be processed twice for over a hundred users. Production is a different world from local development. Your assumptions evaporate. Your clever abstractions betray you. And the bugs you encounter aren't the clean, reproducible kind from textbooks. They're intermittent, context-dependent, and almost always embarrassing in retrospect.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    This post isn't a list of tips you can skim in three minutes. It's a reflection on real failures — what went wrong, why, and how those moments fundamentally changed the way I write code.
+                </p>
+            </div>
+
+            <!-- ================= SECTIONS ================= -->
+
+            <section id="bugs" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-8">The Bugs That Changed How I Think</h2>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Bug #1: The Race Condition That Double-Charged Customers</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The system was a mid-sized e-commerce platform. We had a checkout flow that, on payment confirmation, would mark the order as <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">PAID</code>, generate an invoice, and decrement inventory.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    One afternoon, support started getting tickets. Customers were seeing two charges on their bank statements. The pattern was terrifying: always fast double-clicks, always on mobile, always under high traffic. The payment confirmation endpoint wasn't idempotent. When a user clicked "Pay" twice in quick succession, two concurrent requests would both check <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">if order.status != 'PAID'</code> at virtually the same millisecond, both see <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">PENDING</code>, and both proceed to charge the card.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The fix was a database-level row lock combined with an idempotency key tied to the session:
+                </p>
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-6">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center" style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>python</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code>with transaction.atomic():
+    order = Order.objects.select_for_update().get(id=order_id)
+    if order.status == 'PAID':
+        return Response({"detail": "Already processed"}, status=200)
+    process_payment(order)
+    order.status = 'PAID'
+    order.save()</code></pre>
+                </div>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-10" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">The lesson:</strong> Never trust application-level checks for state transitions under concurrent load. The database is your last line of defense — use locks, use transactions, and design every mutation endpoint to be idempotent from day one. Not as an afterthought.
+                </p>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Bug #2: The Edge Case That Silently Corrupted a Feed</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    This happened on a content aggregation service. We had an API endpoint returning a paginated feed using a <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">cursor</code> parameter — a base64-encoded timestamp — to support infinite scroll. Everything worked perfectly in staging. In production, two weeks after launch, users started reporting their feed would loop — showing the same posts repeatedly.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The root cause: we never validated what happened when two posts had the exact same timestamp. A batch job bulk-inserted posts with <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">created_at = datetime.utcnow()</code> — meaning hundreds of posts could share the same second. When the cursor landed on one of those timestamps, the query <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">WHERE created_at &lt; cursor</code> skipped entire clusters of content.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-10" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">The lesson:</strong> Edge cases aren't edge cases in production — they're just lower-probability scenarios waiting for enough traffic. If your system ingests data in bulk or parallel, collisions are inevitable. Design your data model to handle them from the start.
+                </p>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Bug #3: The Monitoring Gap That Cost Us Four Hours</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    We were running a background job that processed webhook events from a third-party payment provider, consuming from a Redis queue. One Friday evening, the queue started backing up. By the time anyone noticed, there were 14,000 unprocessed events — roughly four hours of missed updates.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The cause was mundane: a minor schema change in the third-party payload caused our validation to raise an unhandled exception. The worker caught it, logged <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">"Validation error"</code> at <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">WARNING</code> level, and moved on — silently dropping the event with no retry, no alert, no dead-letter queue. The log entry existed. We just had no alert watching for it.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-10" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">The lesson:</strong> A log line that nobody reads is the same as no log line. Every error path in a background job needs to either retry with backoff, push to a dead-letter queue, or trigger an alert — preferably all three. And third-party integrations will silently change their contracts; your consumers need to scream when that happens.
+                </p>
+
+                <h3 class="text-xl sm:text-2xl font-bold mb-3">Bug #4: The Performance Cliff That Didn't Exist in Staging</h3>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    We had an analytics dashboard that queried aggregated user activity. In staging with 5,000 records, the query ran in under 100ms. In production with 2.3 million records, it ran in 18 seconds on peak traffic days — and sometimes timed out entirely.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The query joined three tables, applied a date range filter, and sorted by a derived CASE expression — which isn't indexable, so Postgres did a full sequential scan every time. We found it by finally setting up slow query logging and running <code class="px-2 py-1 rounded text-sm" style="background-color: var(--bg-tertiary);">EXPLAIN ANALYZE</code> on the offending query. The fix involved pre-computing the derived column into a materialized view, refreshed every 15 minutes.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">The lesson:</strong> Staging is a lie. It has clean data, low cardinality, and zero concurrent users. If you're not load testing with production-scale data — not just production-scale traffic — you're flying blind.
+                </p>
+            </section>
+
+            <section id="patterns" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Patterns I Noticed Across Failures</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Assumptions that break silently.</strong> Almost every bug above traces back to an assumption that felt reasonable: timestamps are unique, third-party schemas don't change, staging resembles production. Good code makes its assumptions explicit — through assertions, input validation, or at minimum, a comment.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Observability as an afterthought.</strong> We consistently under-invested in logging and monitoring during feature development, then scrambled during incidents. Observability has to be part of the definition of done, not a follow-up ticket.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Error handling that handles nothing.</strong> Catching errors and logging them without acting on them creates systems that appear healthy while quietly rotting. Errors should propagate, retry, alert, or all of the above. Silence is never the right response to failure.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Ignoring the boundaries of your own abstractions.</strong> The feed cursor bug happened because our pagination abstraction assumed uniqueness it couldn't guarantee. Every abstraction has a contract; violating that contract under unexpected input is a bug waiting to be scheduled.
+                </p>
+            </section>
+
+            <section id="style" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">How My Coding Style Changed</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Early in my career, my internal benchmark for code was simple: does it work? If the tests passed and the happy path ran cleanly, I shipped it. My benchmark today is closer to: <strong style="color: var(--text-primary);">does it fail safely?</strong>
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Defensive programming stopped feeling paranoid.</strong> Data that enters your system from external sources — user input, third-party APIs, message queues — should be validated at the boundary, not trusted throughout. The deeper it gets into your system before you validate it, the more damage it can do.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Logs became part of the feature, not decoration.</strong> Now I write logs the way I write tests: before I ship a feature, I ask myself "if this breaks at 3 AM and I'm half-asleep, will I be able to diagnose it from the logs alone?"
+                </p>
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-6">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center" style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>python</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code># Before: technically a log
+logger.info("Payment processed")
+
+# After: actually useful
+logger.info(
+    "Payment processed",
+    extra={
+        "order_id": order.id,
+        "user_id": order.user_id,
+        "amount": order.total,
+        "provider": payment_provider,
+        "duration_ms": duration
+    }
+)</code></pre>
+                </div>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Tests started covering failure modes, not just success paths.</strong> A significant portion of my tests are now adversarial: what happens if the database connection drops mid-transaction? What if the third-party returns a 200 with a malformed body? What if two requests arrive simultaneously?
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Concurrency stopped being an advanced topic.</strong> Once you've debugged a race condition in production, you start seeing potential races everywhere. Every time I write a read-modify-write pattern now, I ask: what happens if two instances of this run simultaneously?
+                </p>
+            </section>
+
+            <section id="practices" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-6">Practical Practices I Follow Now</h2>
+
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Structured logging from the start.</strong> Every log entry includes a correlation ID, the relevant entity IDs, and timing information. Free-text logs are searchable; structured logs are <em>analyzable</em>.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Dead-letter queues for every consumer.</strong> Any background job consuming from a queue needs a dead-letter destination for failed messages. Without it, failures disappear and you discover them through user complaints, not monitoring.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Idempotency keys on all mutation endpoints.</strong> Any endpoint that creates or modifies state should accept an idempotency key. Store it, check it, and return the same response if the same key appears twice.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Explicit timeouts on every external call.</strong> Database queries, HTTP requests to third-party services, Redis commands — everything external gets a timeout. Requests that hang indefinitely will block your thread pool and cascade into a full outage.
+                </p>
+                <div class="code-block-wrapper rounded-lg overflow-hidden mb-6">
+                    <div class="px-4 py-2 text-xs flex justify-between items-center" style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
+                        <span>python</span>
+                    </div>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                    <pre style="background-color: var(--bg-secondary);"><code>import httpx
+
+# Always explicit, never relying on defaults
+response = httpx.get(url, timeout=httpx.Timeout(connect=2.0, read=10.0))</code></pre>
+                </div>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-4" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Monitoring alerts on error rates, not just uptime.</strong> A service can be "up" while silently failing 5% of requests. I set alerts on 5xx rates, queue depth, and job failure counts — anything that tells me the system is misbehaving before a user does.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">Code reviews with a failure mindset.</strong> When I review code now, I'm not primarily asking "is this logic correct?" I'm asking: "what are the assumptions here, and which ones can break?" I look for unhandled error paths, missing timeouts, state mutations without locking, and log statements that would be useless during an incident.
+                </p>
+            </section>
+
+            <section id="closing" class="mb-12">
+                <h2 class="text-2xl sm:text-3xl font-bold mb-4">Closing Thoughts</h2>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    Production bugs are inevitable. That's not a cynical statement — it's the only realistic starting point for designing reliable systems. If you build software assuming it will never break, you'll design systems that break catastrophically. If you build it assuming failure is a matter of when, not if, you'll design systems that degrade gracefully, alert loudly, and recover quickly.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px] mb-6" style="color: var(--text-secondary);">
+                    The engineers I respect most aren't the ones who write bug-free code — I'm not sure that person exists. They're the ones whose bugs are easy to diagnose, whose systems fail loudly rather than silently, and whose post-mortems focus on systemic fixes rather than blame.
+                </p>
+                <p class="text-base sm:text-xl leading-7 sm:leading-[38px]" style="color: var(--text-secondary);">
+                    Five years in, the most honest thing I can tell you is this: every production incident I've ever been involved in has made me a better engineer. Not because suffering is virtuous, but because real systems under real conditions will reveal every assumption you didn't know you were making. Build systems that fail gracefully. Then make sure they tell you when they do.
+                </p>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="../../main.js"></script>
+</body>
+
+</html>

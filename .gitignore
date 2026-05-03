@@ -1,0 +1,5 @@
+node_modules/
+package-lock.json
+tailwind.config.js
+tailwind.input.css
+.DS_Store
